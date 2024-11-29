@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Anonymous Chat Room</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        #chat-container {
+            max-width: 600px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        #messages {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 10px;
+        }
+        button {
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+<div id="chat-container">
+    <div id="messages"></div>
+    <input id="messageInput" type="text" placeholder="Type a message...">
+    <button id="sendButton">Send</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.4.0/sockjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+<script>
+    let stompClient = null;
+    const userName = prompt("Enter your name");
+
+    function connect() {
+        const socket = new SockJS('/chat-websocket');
+        stompClient = Stomp.over(socket);
+        stompClient.connect({}, onConnected, onError);
+    }
+
+    function onConnected() {
+        stompClient.subscribe('/topic/public', onMessageReceived);
+        stompClient.send("/app/chat.addUser", {}, JSON.stringify({sender: userName, type: 'JOIN'}));
+    }
+
+    function onError(error) {
+        console.error('Could not connect to WebSocket server.', error);
+    }
+
+    function sendMessage() {
+        const messageInput = document.getElementById('messageInput');
+        const messageContent = messageInput.value.trim();
+        if (messageContent && stompClient) {
+            const chatMessage = { sender: userName, content: messageContent, type: 'CHAT' };
+            stompClient.send("/app/chat.sendMessage", {}, JSON.stringify(chatMessage));
+            messageInput.value = '';
+        }
+    }
+
+    function onMessageReceived(payload) {
+        const message = JSON.parse(payload.body);
+        const messagesDiv = document.getElementById('messages');
+        const messageElement = document.createElement('div');
+        messageElement.textContent = `${message.sender}: ${message.content}`;
+        messagesDiv.appendChild(messageElement);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    document.getElementById('sendButton').addEventListener('click', sendMessage);
+    connect();
+</script>
+</body>
+</html>
